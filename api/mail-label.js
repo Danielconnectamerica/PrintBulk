@@ -2,6 +2,7 @@
 // Creates an Endicia (SERA) return label via /api/create-label,
 // builds a combined PDF (instructions + label placed in bottom half),
 // and mails it via Lob as a Letter using address_placement=insert_blank_page.
+// Physical-mail version: intentionally does NOT pass or capture email fields.
 
 import { PDFDocument } from "pdf-lib";
 import fs from "fs";
@@ -62,6 +63,27 @@ function normalizeWeightOz(body) {
   return null;
 }
 
+function buildCreateLabelPayload(body) {
+  const payload = {
+    name: requireField(body, "name"),
+    address1: requireField(body, "address1"),
+    address2: requireField(body, "address2") || "",
+    city: requireField(body, "city"),
+    state: requireField(body, "state"),
+    zip: requireField(body, "zip"),
+    phone: requireField(body, "phone"),
+    deviceType: requireField(body, "deviceType"),
+    deviceSerial: requireField(body, "deviceSerial") || "",
+    returnReason: requireField(body, "returnReason") || "",
+    weightOz: normalizeWeightOz(body),
+  };
+
+  // Intentionally DO NOT pass:
+  // email, customerEmail, agentEmail, or any other email-like field
+
+  return payload;
+}
+
 /**
  * Build PDF:
  * - Includes power-off-instructions.pdf (all pages) if present
@@ -89,21 +111,18 @@ async function buildInstructionsPlusLabelPdf({ labelBase64 }) {
   // Embed label PDF page 0
   const [embeddedLabel] = await out.embedPdf(labelBytes, [0]);
 
-  // True 4x6 target size (points)
-  const targetW = 288; // 4"
-  const targetH = 432; // 6"
+  // True 4x6 target size
+  const targetW = 288;
+  const targetH = 432;
 
-  // Fit label into 4x6 box (preserve aspect ratio)
   let scale = Math.min(targetW / embeddedLabel.width, targetH / embeddedLabel.height);
   let drawW = embeddedLabel.width * scale;
   let drawH = embeddedLabel.height * scale;
 
-  // Bottom-half safe placement
-  const marginBottom = 24; // 1/3"
-  const safeTop = LETTER_H / 2 - 18; // keep under fold line with buffer
-
-  // If label would cross safeTop, shrink to fit bottom half
+  const marginBottom = 24;
+  const safeTop = LETTER_H / 2 - 18;
   const maxAllowedH = safeTop - marginBottom;
+
   if (drawH > maxAllowedH) {
     const extraScale = maxAllowedH / drawH;
     scale = scale * extraScale;
@@ -129,14 +148,17 @@ export default async function handler(req, res) {
     const creds = parseBasicAuth(req);
     const expectedUser = process.env.MAIL_USER || "";
     const expectedPass = process.env.MAIL_PASS || "";
+
     if (!expectedUser || !expectedPass) {
       return sendJson(res, 500, { ok: false, error: "Missing MAIL_USER/MAIL_PASS env vars" });
     }
+
     if (!creds || creds.user !== expectedUser || creds.pass !== expectedPass) {
       return unauthorized(res);
     }
 
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
 
     if (!process.env.LOB_API_KEY) {
       return sendJson(res, 500, { ok: false, error: "Missing LOB_API_KEY env var" });
@@ -162,15 +184,20 @@ export default async function handler(req, res) {
     if (!deviceType) missing.push("deviceType");
 
     if (missing.length) {
-      return sendJson(res, 400, { ok: false, error: `Missing required fields: ${missing.join(", ")}` });
+      return sendJson(res, 400, {
+        ok: false,
+        error: `Missing required fields: ${missing.join(", ")}`
+      });
     }
 
-    // 1) Generate USPS label
+    // 1) Generate USPS label using ONLY whitelisted physical-mail fields
     const baseUrl = getBaseUrl(req);
+    const createLabelPayload = buildCreateLabelPayload(body);
+
     const labelResp = await fetch(`${baseUrl}/api/create-label`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(createLabelPayload),
     });
 
     const labelJson = await labelResp.json().catch(() => null);
@@ -185,7 +212,7 @@ export default async function handler(req, res) {
     }
 
     const trackingNumber = labelJson.trackingNumber || labelJson.tracking_number || "";
-    const weightOz = normalizeWeightOz(body);
+    const weightOz = normalizeWeightOz(createLabelPayload);
 
     // 2) Build combined PDF
     const combinedPdfBuffer = await buildInstructionsPlusLabelPdf({
@@ -213,8 +240,6 @@ export default async function handler(req, res) {
     // letter options
     form.set("color", "true");
     form.set("use_type", "operational");
-
-    // ✅ Insert a blank address page BEFORE your PDF so the address window doesn't print on your content.
     form.set("address_placement", "insert_blank_page");
 
     // attach file
