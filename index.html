@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Lifeline Printed Return Label</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 650px;
+      margin: 40px auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header img {
+      max-width: 260px;
+      width: 100%;
+      height: auto;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 12px;
+    }
+
+    .required-star {
+      color: red;
+      margin-left: 4px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    input.error-field, select.error-field {
+      border: 2px solid red;
+      background-color: #fff5f5;
+    }
+
+    button {
+      background-color: #0055A5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    button:disabled {
+      background-color: #999;
+      cursor: not-allowed;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+
+    .success {
+      color: green;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <img src="/Lifeline Logo.png" alt="Lifeline" />
+</div>
+
+<h2>Request a Physical Return Label</h2>
+
+<form id="returnForm" novalidate>
+
+  <label>Full Name<span class="required-star">*</span></label>
+  <input type="text" name="name" required />
+
+  <label>Street Address<span class="required-star">*</span></label>
+  <input type="text" name="address1" required />
+
+  <label>Apartment / Suite</label>
+  <input type="text" name="address2" />
+
+  <label>City<span class="required-star">*</span></label>
+  <input type="text" name="city" required />
+
+  <label>State<span class="required-star">*</span></label>
+  <select name="state" required>
+    <option value="">Select State</option>
+    <option value="AL">Alabama (AL)</option>
+    <option value="AK">Alaska (AK)</option>
+    <option value="AZ">Arizona (AZ)</option>
+    <option value="AR">Arkansas (AR)</option>
+    <option value="CA">California (CA)</option>
+    <option value="CO">Colorado (CO)</option>
+    <option value="CT">Connecticut (CT)</option>
+    <option value="DE">Delaware (DE)</option>
+    <option value="FL">Florida (FL)</option>
+    <option value="GA">Georgia (GA)</option>
+    <option value="HI">Hawaii (HI)</option>
+    <option value="ID">Idaho (ID)</option>
+    <option value="IL">Illinois (IL)</option>
+    <option value="IN">Indiana (IN)</option>
+    <option value="IA">Iowa (IA)</option>
+    <option value="KS">Kansas (KS)</option>
+    <option value="KY">Kentucky (KY)</option>
+    <option value="LA">Louisiana (LA)</option>
+    <option value="ME">Maine (ME)</option>
+    <option value="MD">Maryland (MD)</option>
+    <option value="MA">Massachusetts (MA)</option>
+    <option value="MI">Michigan (MI)</option>
+    <option value="MN">Minnesota (MN)</option>
+    <option value="MS">Mississippi (MS)</option>
+    <option value="MO">Missouri (MO)</option>
+    <option value="MT">Montana (MT)</option>
+    <option value="NE">Nebraska (NE)</option>
+    <option value="NV">Nevada (NV)</option>
+    <option value="NH">New Hampshire (NH)</option>
+    <option value="NJ">New Jersey (NJ)</option>
+    <option value="NM">New Mexico (NM)</option>
+    <option value="NY">New York (NY)</option>
+    <option value="NC">North Carolina (NC)</option>
+    <option value="ND">North Dakota (ND)</option>
+    <option value="OH">Ohio (OH)</option>
+    <option value="OK">Oklahoma (OK)</option>
+    <option value="OR">Oregon (OR)</option>
+    <option value="PA">Pennsylvania (PA)</option>
+    <option value="RI">Rhode Island (RI)</option>
+    <option value="SC">South Carolina (SC)</option>
+    <option value="SD">South Dakota (SD)</option>
+    <option value="TN">Tennessee (TN)</option>
+    <option value="TX">Texas (TX)</option>
+    <option value="UT">Utah (UT)</option>
+    <option value="VT">Vermont (VT)</option>
+    <option value="VA">Virginia (VA)</option>
+    <option value="WA">Washington (WA)</option>
+    <option value="WV">West Virginia (WV)</option>
+    <option value="WI">Wisconsin (WI)</option>
+    <option value="WY">Wyoming (WY)</option>
+  </select>
+
+  <label>ZIP Code<span class="required-star">*</span></label>
+  <input type="text" name="zip" required />
+
+  <label>Phone Number<span class="required-star">*</span></label>
+  <input type="text" name="phone" required />
+
+  <label>Device Type<span class="required-star">*</span></label>
+  <select id="deviceType" name="deviceType" required>
+    <option value="" selected disabled>Select your device…</option>
+    <option value="Cellular Assure / Mytrex" data-weight="2">Cellular Assure / Mytrex — 2 lb</option>
+    <option value="Mytrex Landline" data-weight="2">Mytrex Landline — 2 lb</option>
+    <option value="On the Go" data-weight="1">On the Go — 1 lb</option>
+    <option value="OTG Micron" data-weight="1">OTG Micron — 1 lb</option>
+    <option value="OTG Mini Neck" data-weight="1">OTG Mini Neck — 1 lb</option>
+    <option value="OTG Mini Wrist" data-weight="1">OTG Mini Wrist — 1 lb</option>
+    <option value="Smartwatch" data-weight="1">Smartwatch — 1 lb</option>
+    <option value="Mobile LTE" data-weight="1">Mobile LTE — 1 lb</option>
+    <option value="Other" data-weight="2">Other — 2 lb</option>
+  </select>
+
+  <label>Device Serial (Optional)</label>
+  <input type="text" name="deviceSerial" />
+
+  <label>Return Reason (Optional)</label>
+  <input type="text" name="returnReason" />
+
+  <button type="submit" id="submitBtn">Mail My Return Label</button>
+  <div id="message"></div>
+
+</form>
+
+<script>
+  const form = document.getElementById("returnForm");
+  const messageDiv = document.getElementById("message");
+  const submitBtn = document.getElementById("submitBtn");
+  const deviceSelect = document.getElementById("deviceType");
+
+  const weightInput = document.createElement("input");
+  weightInput.type = "hidden";
+  weightInput.name = "weightOz";
+  form.appendChild(weightInput);
+
+  deviceSelect.addEventListener("change", function () {
+    const selected = deviceSelect.options[deviceSelect.selectedIndex];
+    const weightLbs = Number(selected.getAttribute("data-weight") || 2);
+    weightInput.value = String(weightLbs * 16);
+  });
+
+  function clearFieldErrors() {
+    form.querySelectorAll("input, select")
+      .forEach(f => f.classList.remove("error-field"));
+  }
+
+  function validateForm() {
+    clearFieldErrors();
+    const requiredFields = form.querySelectorAll("[required]");
+    const missing = [];
+
+    requiredFields.forEach(field => {
+      if (!field.value.trim()) {
+        field.classList.add("error-field");
+        missing.push(field.name);
+      }
+    });
+
+    if (!weightInput.value) {
+      deviceSelect.classList.add("error-field");
+      missing.push("deviceType");
+    }
+
+    if (missing.length) {
+      messageDiv.className = "error";
+      messageDiv.innerHTML =
+        "Please complete all required fields.";
+      return false;
+    }
+
+    return true;
+  }
+
+  form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    messageDiv.innerHTML = "";
+    messageDiv.className = "";
+
+    if (!validateForm()) return;
+
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Processing... Please wait";
+
+    try {
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+
+      const response = await fetch("/api/mail-label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "Request failed");
+      }
+
+      messageDiv.className = "success";
+      messageDiv.innerHTML =
+        "Success! Your return label has been mailed.<br><br>" +
+        (result.uspsTrackingNumber ? "USPS Tracking: " + result.uspsTrackingNumber + "<br>" : "") +
+        (result.lobLetterId ? "Mail Tracking ID: " + result.lobLetterId : "");
+
+      form.reset();
+      weightInput.value = "";
+
+    } catch (err) {
+      messageDiv.className = "error";
+      messageDiv.innerHTML = "Error: " + err.message;
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Mail My Return Label";
+  });
+</script>
+
+</body>
+</html>
