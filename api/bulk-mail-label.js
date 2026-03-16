@@ -5,6 +5,9 @@
 // - Internally calls /api/mail-label with MAIL_USER / MAIL_PASS Basic Auth
 // - Processes rows one-by-one
 // - Intentionally ignores email fields
+// - Optionally logs final mailed result to SharePoint / Power Automate webhook
+
+const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL || "";
 
 function sendJson(res, status, obj) {
   res.statusCode = status;
@@ -72,6 +75,22 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function postToSheets(webhookUrl, payload) {
+  if (!webhookUrl) return null;
+
+  try {
+    const r = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    return { ok: r.ok, status: r.status };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -131,12 +150,41 @@ export default async function handler(req, res) {
       const validation = validateRow(cleanRow);
 
       if (!validation.ok) {
-        results.push({
+        const result = {
           rowNumber,
           name: cleanRow.name || null,
           ok: false,
           error: `Missing required fields: ${validation.missing.join(", ")}`
+        };
+
+        results.push(result);
+
+        await postToSheets(SHEETS_WEBHOOK_URL, {
+          source: "Lifeline Bulk Print",
+          batch_name: batchName,
+          row_number: rowNumber,
+          created_at_iso: new Date().toISOString(),
+
+          customer_name: cleanRow.name || "",
+          customer_phone: cleanRow.phone || "",
+          from_address1: cleanRow.address1 || "",
+          from_address2: cleanRow.address2 || "",
+          from_city: cleanRow.city || "",
+          from_state: cleanRow.state || "",
+          from_zip: cleanRow.zip || "",
+
+          device_type: cleanRow.deviceType || "",
+          device_serial: cleanRow.deviceSerial || "",
+          return_reason: cleanRow.returnReason || "",
+          weight_oz: cleanRow.weightOz ?? null,
+
+          tracking_number: "",
+          lob_letter_id: "",
+          lob_status: "",
+          status: "Failed",
+          error_message: result.error
         });
+
         continue;
       }
 
@@ -153,17 +201,46 @@ export default async function handler(req, res) {
         const data = await resp.json().catch(() => null);
 
         if (!resp.ok || !data?.ok) {
-          results.push({
+          const result = {
             rowNumber,
             name: cleanRow.name || null,
             ok: false,
             error: data?.error || `HTTP ${resp.status}`,
             details: data?.details || null
+          };
+
+          results.push(result);
+
+          await postToSheets(SHEETS_WEBHOOK_URL, {
+            source: "Lifeline Bulk Print",
+            batch_name: batchName,
+            row_number: rowNumber,
+            created_at_iso: new Date().toISOString(),
+
+            customer_name: cleanRow.name || "",
+            customer_phone: cleanRow.phone || "",
+            from_address1: cleanRow.address1 || "",
+            from_address2: cleanRow.address2 || "",
+            from_city: cleanRow.city || "",
+            from_state: cleanRow.state || "",
+            from_zip: cleanRow.zip || "",
+
+            device_type: cleanRow.deviceType || "",
+            device_serial: cleanRow.deviceSerial || "",
+            return_reason: cleanRow.returnReason || "",
+            weight_oz: cleanRow.weightOz ?? null,
+
+            tracking_number: "",
+            lob_letter_id: "",
+            lob_status: "",
+            status: "Failed",
+            error_message: result.error
           });
+
           continue;
         }
 
-        results.push({
+        const result = {
           rowNumber,
           name: cleanRow.name || null,
           ok: true,
@@ -171,17 +248,72 @@ export default async function handler(req, res) {
           lobStatus: data.lobStatus || null,
           uspsTrackingNumber: data.uspsTrackingNumber || null,
           weightOz: data.weightOz || cleanRow.weightOz || null
+        };
+
+        results.push(result);
+
+        await postToSheets(SHEETS_WEBHOOK_URL, {
+          source: "Lifeline Bulk Print",
+          batch_name: batchName,
+          row_number: rowNumber,
+          created_at_iso: new Date().toISOString(),
+
+          customer_name: cleanRow.name || "",
+          customer_phone: cleanRow.phone || "",
+          from_address1: cleanRow.address1 || "",
+          from_address2: cleanRow.address2 || "",
+          from_city: cleanRow.city || "",
+          from_state: cleanRow.state || "",
+          from_zip: cleanRow.zip || "",
+
+          device_type: cleanRow.deviceType || "",
+          device_serial: cleanRow.deviceSerial || "",
+          return_reason: cleanRow.returnReason || "",
+          weight_oz: result.weightOz ?? null,
+
+          tracking_number: result.uspsTrackingNumber || "",
+          lob_letter_id: result.lobLetterId || "",
+          lob_status: result.lobStatus || "",
+          status: "Mailed",
+          error_message: ""
         });
       } catch (e) {
-        results.push({
+        const result = {
           rowNumber,
           name: cleanRow.name || null,
           ok: false,
           error: String(e)
+        };
+
+        results.push(result);
+
+        await postToSheets(SHEETS_WEBHOOK_URL, {
+          source: "Lifeline Bulk Print",
+          batch_name: batchName,
+          row_number: rowNumber,
+          created_at_iso: new Date().toISOString(),
+
+          customer_name: cleanRow.name || "",
+          customer_phone: cleanRow.phone || "",
+          from_address1: cleanRow.address1 || "",
+          from_address2: cleanRow.address2 || "",
+          from_city: cleanRow.city || "",
+          from_state: cleanRow.state || "",
+          from_zip: cleanRow.zip || "",
+
+          device_type: cleanRow.deviceType || "",
+          device_serial: cleanRow.deviceSerial || "",
+          return_reason: cleanRow.returnReason || "",
+          weight_oz: cleanRow.weightOz ?? null,
+
+          tracking_number: "",
+          lob_letter_id: "",
+          lob_status: "",
+          status: "Failed",
+          error_message: result.error
         });
       }
 
-      // Small throttle to reduce API bursts
       await sleep(150);
     }
 
