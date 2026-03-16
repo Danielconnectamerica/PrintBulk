@@ -78,9 +78,6 @@ function buildCreateLabelPayload(body) {
     weightOz: normalizeWeightOz(body),
   };
 
-  // Intentionally DO NOT pass:
-  // email, customerEmail, agentEmail, or any other email-like field
-
   return payload;
 }
 
@@ -94,7 +91,6 @@ async function buildInstructionsPlusLabelPdf({ labelBase64 }) {
   const labelBytes = Buffer.from(labelBase64, "base64");
   const out = await PDFDocument.create();
 
-  // Add instructions PDF if exists
   const instructionsPath = path.join(process.cwd(), "power-off-instructions.pdf");
   if (fs.existsSync(instructionsPath)) {
     const instrBytes = fs.readFileSync(instructionsPath);
@@ -103,15 +99,12 @@ async function buildInstructionsPlusLabelPdf({ labelBase64 }) {
     pages.forEach((p) => out.addPage(p));
   }
 
-  // Add letter page
-  const LETTER_W = 612; // 8.5" * 72
-  const LETTER_H = 792; // 11"  * 72
+  const LETTER_W = 612;
+  const LETTER_H = 792;
   const page = out.addPage([LETTER_W, LETTER_H]);
 
-  // Embed label PDF page 0
   const [embeddedLabel] = await out.embedPdf(labelBytes, [0]);
 
-  // True 4x6 target size
   const targetW = 288;
   const targetH = 432;
 
@@ -144,7 +137,6 @@ export default async function handler(req, res) {
       return sendJson(res, 405, { ok: false, error: "Method Not Allowed" });
     }
 
-    // Basic Auth
     const creds = parseBasicAuth(req);
     const expectedUser = process.env.MAIL_USER || "";
     const expectedPass = process.env.MAIL_PASS || "";
@@ -164,7 +156,6 @@ export default async function handler(req, res) {
       return sendJson(res, 500, { ok: false, error: "Missing LOB_API_KEY env var" });
     }
 
-    // Required fields
     const name = requireField(body, "name");
     const address1 = requireField(body, "address1");
     const address2 = requireField(body, "address2") || "";
@@ -190,14 +181,16 @@ export default async function handler(req, res) {
       });
     }
 
-    // 1) Generate USPS label using ONLY whitelisted physical-mail fields
     const baseUrl = getBaseUrl(req);
     const createLabelPayload = buildCreateLabelPayload(body);
 
     const labelResp = await fetch(`${baseUrl}/api/create-label`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(createLabelPayload),
+      body: JSON.stringify({
+        ...createLabelPayload,
+        skipLogging: true
+      }),
     });
 
     const labelJson = await labelResp.json().catch(() => null);
@@ -214,15 +207,12 @@ export default async function handler(req, res) {
     const trackingNumber = labelJson.trackingNumber || labelJson.tracking_number || "";
     const weightOz = normalizeWeightOz(createLabelPayload);
 
-    // 2) Build combined PDF
     const combinedPdfBuffer = await buildInstructionsPlusLabelPdf({
       labelBase64: labelJson.labelData,
     });
 
-    // 3) Send to Lob
     const form = new FormData();
 
-    // recipient
     form.set("to[name]", name);
     form.set("to[address_line1]", address1);
     if (address2) form.set("to[address_line2]", address2);
@@ -230,19 +220,16 @@ export default async function handler(req, res) {
     form.set("to[address_state]", state);
     form.set("to[address_zip]", zip);
 
-    // sender
     form.set("from[name]", process.env.LOB_FROM_NAME || "Lifeline");
     form.set("from[address_line1]", process.env.LOB_FROM_ADDRESS1 || "3 Bala Plaza West");
     form.set("from[address_city]", process.env.LOB_FROM_CITY || "Bala Cynwyd");
     form.set("from[address_state]", process.env.LOB_FROM_STATE || "PA");
     form.set("from[address_zip]", process.env.LOB_FROM_ZIP || "19004");
 
-    // letter options
     form.set("color", "true");
     form.set("use_type", "operational");
     form.set("address_placement", "insert_blank_page");
 
-    // attach file
     form.set(
       "file",
       new Blob([combinedPdfBuffer], { type: "application/pdf" }),
