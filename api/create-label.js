@@ -206,7 +206,7 @@ module.exports = async (req, res) => {
     const labelData = await labelResp.json().catch(() => null);
 
     if (!labelResp.ok) {
-      return json(labelResp.status ? res : res, labelResp.status || 500, {
+      return json(res, labelResp.status || 500, {
         ok: false,
         error: "Label creation failed",
         httpStatus: labelResp.status,
