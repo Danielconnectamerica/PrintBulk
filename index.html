@@ -2,13 +2,14 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Lifeline Printed Return Label</title>
-
+  <title>Bulk Printed Return Label Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 650px;
-      margin: 40px auto;
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 12px;
     }
 
     .header {
@@ -22,263 +23,475 @@
       height: auto;
     }
 
-    h2 {
+    h1 {
+      margin: 0 0 8px;
       text-align: center;
-      margin-bottom: 10px;
     }
 
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 12px;
+    .muted {
+      color: #666;
     }
 
-    .required-star {
-      color: red;
-      margin-left: 4px;
+    .center {
+      text-align: center;
     }
 
-    input, select, button {
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 16px;
+      margin: 14px 0;
+    }
+
+    table {
+      border-collapse: collapse;
       width: 100%;
-      padding: 10px;
-      margin-top: 4px;
-      font-size: 16px;
-      box-sizing: border-box;
+      font-size: 13px;
     }
 
-    input.error-field, select.error-field {
-      border: 2px solid red;
-      background-color: #fff5f5;
+    th, td {
+      border: 1px solid #eee;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #fafafa;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .bad {
+      color: #b00020;
+      font-weight: 600;
+    }
+
+    .good {
+      color: #0a7a0a;
+      font-weight: 600;
+    }
+
+    .row-bad {
+      background: #fff2f2;
+    }
+
+    .row-good {
+      background: #f2fff4;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     button {
-      background-color: #0055A5;
-      color: white;
-      border: none;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 8px;
       cursor: pointer;
-      margin-top: 16px;
+    }
+
+    button.primary {
+      background: #0055A5;
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #eee;
     }
 
     button:disabled {
-      background-color: #999;
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
-    .error {
-      color: red;
-      font-weight: bold;
-      margin-top: 12px;
+    progress {
+      width: 320px;
+      height: 18px;
     }
 
-    .success {
-      color: green;
-      font-weight: bold;
-      margin-top: 12px;
+    code {
+      background: #f6f6f6;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #f3f3f3;
+      font-size: 12px;
+    }
+
+    input[type="password"] {
+      padding: 10px;
+      width: 260px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    input[type="file"] {
+      margin-top: 6px;
+    }
+
+    .results-box {
+      margin-top: 14px;
+      font-size: 13px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #666;
     }
   </style>
 </head>
-
 <body>
+  <div class="header">
+    <img src="/Lifeline Logo.png" alt="Lifeline" />
+  </div>
 
-<div class="header">
-  <img src="/Lifeline Logo.png" alt="Lifeline" />
-</div>
+  <h1>Bulk Printed Return Label Upload</h1>
+  <div class="muted center">
+    Upload CSV → validate → send physical return-label mailings through Lob.
+  </div>
 
-<h2>Request a Physical Return Label</h2>
+  <div class="card">
+    <div class="actions">
+      <label>
+        <strong>CSV File:</strong><br />
+        <input id="csvFile" type="file" accept=".csv,text/csv" />
+      </label>
 
-<form id="returnForm" novalidate>
+      <label>
+        <strong>Shared Password:</strong><br />
+        <input id="sharedPassword" type="password" placeholder="Internal password" />
+      </label>
 
-  <label>Full Name<span class="required-star">*</span></label>
-  <input type="text" name="name" required />
+      <button class="secondary" id="btnParse" disabled>Parse & Preview</button>
+      <span class="pill">Batch ID: <code id="batchId">—</code></span>
+    </div>
 
-  <label>Street Address<span class="required-star">*</span></label>
-  <input type="text" name="address1" required />
+    <div class="muted" style="margin-top:10px">
+      Required columns:
+      <code>name</code>, <code>address1</code>, <code>city</code>, <code>state</code>, <code>zip</code>, <code>phone</code>, <code>deviceType</code>
+      <br />
+      Optional columns:
+      <code>address2</code>, <code>deviceSerial</code>, <code>returnReason</code>, <code>weightOz</code>
+      <br /><br />
+      If <code>weightOz</code> is blank, the system will derive it from <code>deviceType</code>.
+    </div>
+  </div>
 
-  <label>Apartment / Suite</label>
-  <input type="text" name="address2" />
+  <div class="card">
+    <div class="actions">
+      <button class="primary" id="btnSend" disabled>Send Valid Rows to Print Mail</button>
+      <progress id="prog" value="0" max="100"></progress>
+      <span id="progText" class="muted"></span>
+    </div>
+    <div id="summary" class="muted" style="margin-top:10px">No file loaded.</div>
+    <div id="resultsBox" class="results-box"></div>
+  </div>
 
-  <label>City<span class="required-star">*</span></label>
-  <input type="text" name="city" required />
+  <div class="card">
+    <div><strong>Preview (first 200 rows)</strong></div>
+    <div id="tableWrap" style="margin-top:10px; overflow:auto; max-height:520px;"></div>
+  </div>
 
-  <label>State<span class="required-star">*</span></label>
-  <select name="state" required>
-    <option value="">Select State</option>
-    <option value="AL">Alabama (AL)</option>
-    <option value="AK">Alaska (AK)</option>
-    <option value="AZ">Arizona (AZ)</option>
-    <option value="AR">Arkansas (AR)</option>
-    <option value="CA">California (CA)</option>
-    <option value="CO">Colorado (CO)</option>
-    <option value="CT">Connecticut (CT)</option>
-    <option value="DE">Delaware (DE)</option>
-    <option value="FL">Florida (FL)</option>
-    <option value="GA">Georgia (GA)</option>
-    <option value="HI">Hawaii (HI)</option>
-    <option value="ID">Idaho (ID)</option>
-    <option value="IL">Illinois (IL)</option>
-    <option value="IN">Indiana (IN)</option>
-    <option value="IA">Iowa (IA)</option>
-    <option value="KS">Kansas (KS)</option>
-    <option value="KY">Kentucky (KY)</option>
-    <option value="LA">Louisiana (LA)</option>
-    <option value="ME">Maine (ME)</option>
-    <option value="MD">Maryland (MD)</option>
-    <option value="MA">Massachusetts (MA)</option>
-    <option value="MI">Michigan (MI)</option>
-    <option value="MN">Minnesota (MN)</option>
-    <option value="MS">Mississippi (MS)</option>
-    <option value="MO">Missouri (MO)</option>
-    <option value="MT">Montana (MT)</option>
-    <option value="NE">Nebraska (NE)</option>
-    <option value="NV">Nevada (NV)</option>
-    <option value="NH">New Hampshire (NH)</option>
-    <option value="NJ">New Jersey (NJ)</option>
-    <option value="NM">New Mexico (NM)</option>
-    <option value="NY">New York (NY)</option>
-    <option value="NC">North Carolina (NC)</option>
-    <option value="ND">North Dakota (ND)</option>
-    <option value="OH">Ohio (OH)</option>
-    <option value="OK">Oklahoma (OK)</option>
-    <option value="OR">Oregon (OR)</option>
-    <option value="PA">Pennsylvania (PA)</option>
-    <option value="RI">Rhode Island (RI)</option>
-    <option value="SC">South Carolina (SC)</option>
-    <option value="SD">South Dakota (SD)</option>
-    <option value="TN">Tennessee (TN)</option>
-    <option value="TX">Texas (TX)</option>
-    <option value="UT">Utah (UT)</option>
-    <option value="VT">Vermont (VT)</option>
-    <option value="VA">Virginia (VA)</option>
-    <option value="WA">Washington (WA)</option>
-    <option value="WV">West Virginia (WV)</option>
-    <option value="WI">Wisconsin (WI)</option>
-    <option value="WY">Wyoming (WY)</option>
-  </select>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const REQUIRED = ["name", "address1", "city", "state", "zip", "phone", "devicetype"];
+    const MAX_PREVIEW = 200;
 
-  <label>ZIP Code<span class="required-star">*</span></label>
-  <input type="text" name="zip" required />
+    let validatedAllRows = [];
+    let validRows = [];
+    let batchId = null;
 
-  <label>Phone Number<span class="required-star">*</span></label>
-  <input type="text" name="phone" required />
+    const elFile = document.getElementById("csvFile");
+    const elPass = document.getElementById("sharedPassword");
+    const btnParse = document.getElementById("btnParse");
+    const btnSend = document.getElementById("btnSend");
+    const summary = document.getElementById("summary");
+    const tableWrap = document.getElementById("tableWrap");
+    const batchIdEl = document.getElementById("batchId");
+    const prog = document.getElementById("prog");
+    const progText = document.getElementById("progText");
+    const resultsBox = document.getElementById("resultsBox");
 
-  <label>Device Type<span class="required-star">*</span></label>
-  <select id="deviceType" name="deviceType" required>
-    <option value="" selected disabled>Select your device…</option>
-    <option value="Cellular Assure / Mytrex" data-weight="2">Cellular Assure / Mytrex — 2 lb</option>
-    <option value="Mytrex Landline" data-weight="2">Mytrex Landline — 2 lb</option>
-    <option value="On the Go" data-weight="1">On the Go — 1 lb</option>
-    <option value="OTG Micron" data-weight="1">OTG Micron — 1 lb</option>
-    <option value="OTG Mini Neck" data-weight="1">OTG Mini Neck — 1 lb</option>
-    <option value="OTG Mini Wrist" data-weight="1">OTG Mini Wrist — 1 lb</option>
-    <option value="Smartwatch" data-weight="1">Smartwatch — 1 lb</option>
-    <option value="Mobile LTE" data-weight="1">Mobile LTE — 1 lb</option>
-    <option value="Other" data-weight="2">Other — 2 lb</option>
-  </select>
+    const DEVICE_WEIGHT_MAP = {
+      "cellular assure / mytrex": 32,
+      "mytrex landline": 32,
+      "on the go": 16,
+      "otg micron": 16,
+      "otg mini neck": 16,
+      "otg mini wrist": 16,
+      "smartwatch": 16,
+      "mobile lte": 16,
+      "other": 32
+    };
 
-  <label>Device Serial (Optional)</label>
-  <input type="text" name="deviceSerial" />
+    function newBatchId() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${Math.random().toString(16).slice(2, 8)}`;
+    }
 
-  <label>Return Reason (Optional)</label>
-  <input type="text" name="returnReason" />
+    function normalizeKey(k) {
+      return String(k || "").trim().toLowerCase();
+    }
 
-  <button type="submit" id="submitBtn">Mail My Return Label</button>
-  <div id="message"></div>
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
 
-</form>
+    function getDerivedWeightOz(deviceType) {
+      const key = String(deviceType || "").trim().toLowerCase();
+      return DEVICE_WEIGHT_MAP[key] || 32;
+    }
 
-<script>
-  const form = document.getElementById("returnForm");
-  const messageDiv = document.getElementById("message");
-  const submitBtn = document.getElementById("submitBtn");
-  const deviceSelect = document.getElementById("deviceType");
+    function validateRow(row, idx) {
+      const errors = [];
+      const r = { ...row };
 
-  const weightInput = document.createElement("input");
-  weightInput.type = "hidden";
-  weightInput.name = "weightOz";
-  form.appendChild(weightInput);
-
-  deviceSelect.addEventListener("change", function () {
-    const selected = deviceSelect.options[deviceSelect.selectedIndex];
-    const weightLbs = Number(selected.getAttribute("data-weight") || 2);
-    weightInput.value = String(weightLbs * 16);
-  });
-
-  function clearFieldErrors() {
-    form.querySelectorAll("input, select")
-      .forEach(f => f.classList.remove("error-field"));
-  }
-
-  function validateForm() {
-    clearFieldErrors();
-    const requiredFields = form.querySelectorAll("[required]");
-    const missing = [];
-
-    requiredFields.forEach(field => {
-      if (!field.value.trim()) {
-        field.classList.add("error-field");
-        missing.push(field.name);
+      for (const k of REQUIRED) {
+        if (!String(r[k] ?? "").trim()) {
+          errors.push(`Missing ${k}`);
+        }
       }
+
+      if (String(r.weightoz || "").trim()) {
+        const w = Number(r.weightoz);
+        if (!Number.isFinite(w) || w <= 0) {
+          errors.push("weightOz must be a positive number");
+        } else {
+          r.weightoz = w;
+        }
+      } else {
+        r.weightoz = getDerivedWeightOz(r.devicetype);
+      }
+
+      r.row_number = idx + 1;
+      return { ok: errors.length === 0, errors, row: r };
+    }
+
+    function renderPreview(rows) {
+      const show = rows.slice(0, MAX_PREVIEW);
+      const cols = [
+        "row_number",
+        "_valid",
+        "_errors",
+        "name",
+        "address1",
+        "address2",
+        "city",
+        "state",
+        "zip",
+        "phone",
+        "devicetype",
+        "deviceserial",
+        "returnreason",
+        "weightoz"
+      ];
+
+      let html = "<table><thead><tr>";
+      for (const c of cols) html += `<th>${escapeHtml(c)}</th>`;
+      html += "</tr></thead><tbody>";
+
+      for (const r of show) {
+        const cls = r._valid ? "row-good" : "row-bad";
+        html += `<tr class="${cls}">`;
+
+        for (const c of cols) {
+          let v = r[c];
+          if (c === "_valid") v = r._valid ? "Yes" : "No";
+          if (c === "_errors") v = (r._errors || []).join("; ");
+          html += `<td>${escapeHtml(v)}</td>`;
+        }
+
+        html += "</tr>";
+      }
+
+      html += "</tbody></table>";
+      tableWrap.innerHTML = html;
+    }
+
+    function renderResults(results) {
+      if (!Array.isArray(results) || !results.length) {
+        resultsBox.innerHTML = "";
+        return;
+      }
+
+      const preview = results.slice(0, 200);
+      let html = '<div><strong>Batch Results</strong></div>';
+      html += '<div class="small" style="margin:6px 0 10px 0;">Showing first 200 result rows.</div>';
+      html += '<table><thead><tr>';
+      html += '<th>rowNumber</th><th>name</th><th>ok</th><th>lobLetterId</th><th>uspsTrackingNumber</th><th>error</th>';
+      html += '</tr></thead><tbody>';
+
+      for (const r of preview) {
+        const cls = r.ok ? "row-good" : "row-bad";
+        html += `<tr class="${cls}">`;
+        html += `<td>${escapeHtml(r.rowNumber)}</td>`;
+        html += `<td>${escapeHtml(r.name)}</td>`;
+        html += `<td>${escapeHtml(r.ok ? "Yes" : "No")}</td>`;
+        html += `<td>${escapeHtml(r.lobLetterId || "")}</td>`;
+        html += `<td>${escapeHtml(r.uspsTrackingNumber || "")}</td>`;
+        html += `<td>${escapeHtml(r.error || "")}</td>`;
+        html += `</tr>`;
+      }
+
+      html += "</tbody></table>";
+      resultsBox.innerHTML = html;
+    }
+
+    function buildApiRows(rows) {
+      return rows.map(row => ({
+        name: row.name,
+        address1: row.address1,
+        address2: row.address2 || "",
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+        phone: row.phone,
+        deviceType: row.devicetype,
+        deviceSerial: row.deviceserial || "",
+        returnReason: row.returnreason || "",
+        weightOz: row.weightoz
+      }));
+    }
+
+    elFile.addEventListener("change", () => {
+      btnParse.disabled = !elFile.files?.length;
+      btnSend.disabled = true;
+      summary.textContent = elFile.files?.length ? "Ready to parse." : "No file loaded.";
+      tableWrap.innerHTML = "";
+      resultsBox.innerHTML = "";
+      batchId = null;
+      batchIdEl.textContent = "—";
+      prog.value = 0;
+      progText.textContent = "";
+      validatedAllRows = [];
+      validRows = [];
     });
 
-    if (!weightInput.value) {
-      deviceSelect.classList.add("error-field");
-      missing.push("deviceType");
-    }
+    btnParse.addEventListener("click", async () => {
+      const file = elFile.files?.[0];
+      if (!file) return;
 
-    if (missing.length) {
-      messageDiv.className = "error";
-      messageDiv.innerHTML =
-        "Please complete all required fields.";
-      return false;
-    }
+      batchId = newBatchId();
+      batchIdEl.textContent = batchId;
+      resultsBox.innerHTML = "";
 
-    return true;
-  }
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: normalizeKey,
+        complete: (res) => {
+          const parsed = (res.data || []).map((r) => {
+            const obj = {};
+            for (const [k, v] of Object.entries(r)) {
+              obj[normalizeKey(k)] = typeof v === "string" ? v.trim() : v;
+            }
+            return obj;
+          });
 
-  form.addEventListener("submit", async function(e) {
-    e.preventDefault();
-    messageDiv.innerHTML = "";
-    messageDiv.className = "";
+          validatedAllRows = parsed.map((r, i) => {
+            const vr = validateRow(r, i);
+            return {
+              ...vr.row,
+              _valid: vr.ok,
+              _errors: vr.errors
+            };
+          });
 
-    if (!validateForm()) return;
+          validRows = validatedAllRows.filter(r => r._valid);
+          const invalidCount = validatedAllRows.length - validRows.length;
 
-    submitBtn.disabled = true;
-    submitBtn.innerText = "Processing... Please wait";
+          summary.innerHTML =
+            `Parsed <strong>${validatedAllRows.length}</strong> rows. ` +
+            `<span class="${invalidCount ? "bad" : "good"}">${invalidCount} invalid</span>, ` +
+            `<span class="good">${validRows.length} valid</span>.`;
 
-    try {
-      const formData = new FormData(form);
-      const data = Object.fromEntries(formData.entries());
-
-      const response = await fetch("/api/mail-label", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+          renderPreview(validatedAllRows);
+          btnSend.disabled = validRows.length === 0;
+          prog.value = 0;
+          progText.textContent = "";
+        },
+        error: (err) => {
+          summary.innerHTML = `<span class="bad">CSV parse error: ${escapeHtml(err)}</span>`;
+        }
       });
+    });
 
-      const result = await response.json();
+    btnSend.addEventListener("click", async () => {
+      if (!batchId) batchId = newBatchId();
+      batchIdEl.textContent = batchId;
 
-      if (!response.ok || !result?.ok) {
-        throw new Error(result?.error || "Request failed");
+      const password = elPass.value || "";
+      if (!password) {
+        alert("Enter the shared password first.");
+        return;
       }
 
-      messageDiv.className = "success";
-      messageDiv.innerHTML =
-        "Success! Your return label has been mailed.<br><br>" +
-        (result.uspsTrackingNumber ? "USPS Tracking: " + result.uspsTrackingNumber + "<br>" : "") +
-        (result.lobLetterId ? "Mail Tracking ID: " + result.lobLetterId : "");
+      if (!validRows.length) {
+        alert("No valid rows to send.");
+        return;
+      }
 
-      form.reset();
-      weightInput.value = "";
+      btnSend.disabled = true;
+      btnParse.disabled = true;
+      resultsBox.innerHTML = "";
+      prog.value = 10;
+      progText.textContent = `Sending ${validRows.length} rows...`;
 
-    } catch (err) {
-      messageDiv.className = "error";
-      messageDiv.innerHTML = "Error: " + err.message;
-    }
+      const payload = {
+        batchName: batchId,
+        rows: buildApiRows(validRows)
+      };
 
-    submitBtn.disabled = false;
-    submitBtn.innerText = "Mail My Return Label";
-  });
-</script>
+      try {
+        const resp = await fetch("/api/bulk-mail-label", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-bulk-password": password
+          },
+          body: JSON.stringify(payload)
+        });
 
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || !data?.ok) {
+          throw new Error(data?.error || `HTTP ${resp.status}`);
+        }
+
+        prog.value = 100;
+        progText.textContent = `${data.totalRows || validRows.length} rows processed`;
+
+        summary.innerHTML =
+          `Finished batch <code>${escapeHtml(batchId)}</code>. ` +
+          `<span class="good">${escapeHtml(data.successCount ?? 0)} mailed</span>, ` +
+          `<span class="${(data.failureCount ?? 0) ? "bad" : "muted"}">${escapeHtml(data.failureCount ?? 0)} failed</span>.`;
+
+        renderResults(data.results || []);
+      } catch (e) {
+        prog.value = 0;
+        progText.textContent = "";
+        summary.innerHTML = `<span class="bad">Error: ${escapeHtml(String(e))}</span>`;
+      }
+
+      btnParse.disabled = false;
+      btnSend.disabled = validRows.length === 0;
+    });
+  </script>
 </body>
 </html>
