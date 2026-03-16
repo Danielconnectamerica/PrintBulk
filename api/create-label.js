@@ -1,6 +1,6 @@
 // /api/create-label.js
 // USPS Returns (Pay-On-Use) label via Stamps.com/Endicia SERA
-// Weight: from dropdown (1 lb or 2 lb)
+// Physical-mail version: intentionally does NOT capture or log email fields.
 
 const SIGNIN_BASE = process.env.SERA_SIGNIN_BASE || "https://signin.stampsendicia.com";
 const API_BASE = process.env.SERA_API_BASE || "https://api.stampsendicia.com/sera";
@@ -33,12 +33,14 @@ function json(res, status, obj) {
 
 async function postToSheets(webhookUrl, payload) {
   if (!webhookUrl) return null;
+
   try {
     const r = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     return { ok: r.ok, status: r.status };
   } catch (e) {
     return { ok: false, error: String(e) };
@@ -60,9 +62,11 @@ async function getAccessToken() {
   });
 
   const data = await resp.json().catch(() => null);
+
   if (!resp.ok || !data?.access_token) {
     throw new Error(`Token refresh failed. HTTP ${resp.status} ${JSON.stringify(data)}`);
   }
+
   return data.access_token;
 }
 
@@ -78,26 +82,27 @@ function uuidv4() {
 
 function customerFromAddress(body) {
   return {
-    name: (body.name || "").trim(),
+    name: String(body.name || "").trim(),
     company_name: "",
-    address_line1: (body.address1 || "").trim(),
-    address_line2: (body.address2 || "").trim(),
-    city: (body.city || "").trim(),
-    state_province: (body.state || "").trim(),
-    postal_code: (body.zip || "").trim(),
+    address_line1: String(body.address1 || "").trim(),
+    address_line2: String(body.address2 || "").trim(),
+    city: String(body.city || "").trim(),
+    state_province: String(body.state || "").trim(),
+    postal_code: String(body.zip || "").trim(),
     country_code: "US",
-    phone: (body.phone || "").trim(),
-    email: (body.email || "").trim(),
+    phone: String(body.phone || "").trim(),
+    // Intentionally no email field for physical-mail flow
+    email: "",
   };
 }
 
 function normalizeWeightOz(body) {
   // Prefer weightOz from UI; fallback to weightLbs; then default 32 oz
   const oz = Number(body.weightOz);
-  if (Number.isFinite(oz) && (oz === 16 || oz === 32)) return oz;
+  if (Number.isFinite(oz) && oz > 0) return oz;
 
   const lbs = Number(body.weightLbs);
-  if (Number.isFinite(lbs) && (lbs === 1 || lbs === 2)) return lbs * 16;
+  if (Number.isFinite(lbs) && lbs > 0) return lbs * 16;
 
   return 32;
 }
@@ -115,18 +120,25 @@ module.exports = async (req, res) => {
       });
     }
 
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    const body = typeof req.body === "string"
+      ? JSON.parse(req.body || "{}")
+      : (req.body || {});
 
-    // ✅ NEW: allow mail-label.js to call create-label.js without creating a SharePoint row
+    // Allow caller to skip SharePoint/webhook logging
     const skipLogging = body?.skipLogging === true;
 
     const required = ["name", "address1", "city", "state", "zip", "phone", "deviceType"];
     const missing = required.filter((k) => !String(body[k] || "").trim());
+
     if (missing.length) {
-      return json(res, 400, { ok: false, error: `Missing required fields: ${missing.join(", ")}` });
+      return json(res, 400, {
+        ok: false,
+        error: `Missing required fields: ${missing.join(", ")}`
+      });
     }
 
     const from_address = customerFromAddress(body);
+
     if (
       !from_address.name ||
       !from_address.address_line1 ||
@@ -172,8 +184,8 @@ module.exports = async (req, res) => {
       },
 
       references: {
-        reference1: (body.deviceSerial || "").trim(),
-        reference2: (body.returnReason || "").trim(),
+        reference1: String(body.deviceSerial || "").trim(),
+        reference2: String(body.returnReason || "").trim(),
       },
 
       is_test_label: false,
@@ -194,7 +206,7 @@ module.exports = async (req, res) => {
     const labelData = await labelResp.json().catch(() => null);
 
     if (!labelResp.ok) {
-      return json(res, labelResp.status, {
+      return json(labelResp.status ? res : res, labelResp.status || 500, {
         ok: false,
         error: "Label creation failed",
         httpStatus: labelResp.status,
@@ -205,7 +217,6 @@ module.exports = async (req, res) => {
     const trackingNumber = labelData.tracking_number || "";
     const maybeBase64 = labelData.labels?.[0]?.label_data || labelData.label_data || null;
 
-    // ✅ UPDATED: SharePoint logging is optional
     let sheetsLogged = null;
 
     if (!skipLogging) {
@@ -215,7 +226,6 @@ module.exports = async (req, res) => {
         created_at_iso: new Date().toISOString(),
 
         customer_name: from_address.name,
-        customer_email: from_address.email,
         customer_phone: from_address.phone,
         from_address1: from_address.address_line1,
         from_address2: from_address.address_line2,
@@ -255,6 +265,7 @@ module.exports = async (req, res) => {
       const fileResp = await fetch(labelHref, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+
       const buf = Buffer.from(await fileResp.arrayBuffer());
       const base64 = buf.toString("base64");
 
