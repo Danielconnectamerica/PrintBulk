@@ -64,7 +64,7 @@ function normalizeWeightOz(body) {
 }
 
 function buildCreateLabelPayload(body) {
-  const payload = {
+  return {
     name: requireField(body, "name"),
     address1: requireField(body, "address1"),
     address2: requireField(body, "address2") || "",
@@ -77,8 +77,6 @@ function buildCreateLabelPayload(body) {
     returnReason: requireField(body, "returnReason") || "",
     weightOz: normalizeWeightOz(body),
   };
-
-  return payload;
 }
 
 /**
@@ -213,6 +211,7 @@ export default async function handler(req, res) {
 
     const form = new FormData();
 
+    // recipient
     form.set("to[name]", name);
     form.set("to[address_line1]", address1);
     if (address2) form.set("to[address_line2]", address2);
@@ -220,16 +219,19 @@ export default async function handler(req, res) {
     form.set("to[address_state]", state);
     form.set("to[address_zip]", zip);
 
-    form.set("from[name]", process.env.LOB_FROM_NAME || "Lifeline");
-    form.set("from[address_line1]", process.env.LOB_FROM_ADDRESS1 || "3 Bala Plaza West");
-    form.set("from[address_city]", process.env.LOB_FROM_CITY || "Bala Cynwyd");
-    form.set("from[address_state]", process.env.LOB_FROM_STATE || "PA");
-    form.set("from[address_zip]", process.env.LOB_FROM_ZIP || "19004");
+    // sender (hard-coded to Bala Cynwyd)
+    form.set("from[name]", "Lifeline");
+    form.set("from[address_line1]", "3 Bala Plaza West");
+    form.set("from[address_city]", "Bala Cynwyd");
+    form.set("from[address_state]", "PA");
+    form.set("from[address_zip]", "19004");
 
+    // letter options
     form.set("color", "true");
     form.set("use_type", "operational");
     form.set("address_placement", "insert_blank_page");
 
+    // attach file
     form.set(
       "file",
       new Blob([combinedPdfBuffer], { type: "application/pdf" }),
